@@ -6,7 +6,7 @@
 /* Constants */
 #define MAX_SYS_CMD_LEN 256
 #define MAX_OUTPUT_LEN  256
-#define DIALOG_BIN      "./dialog"
+#define DIALOG_BIN      "dialog --keep-tite"
 #define DIALOG_OUT      "dialog_out"
 
 /* Function definitions */
@@ -75,7 +75,12 @@ static void fill_ipv4_header(pkt_gen_configuration_t *configuration)
         strcat(system_command, " 2 Dest-IP off");
         strcat(system_command, " 3 Protocol off");
         strcat(system_command, " 2>"DIALOG_OUT);
-        system(system_command);
+        if (system(system_command) == -1)
+	{
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return;
+	}
+
         get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         char *token = strtok(dialog_output, "\"");
@@ -85,10 +90,14 @@ static void fill_ipv4_header(pkt_gen_configuration_t *configuration)
                 {
                         case 0:
                         {
-                                sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"IPv4 header\""
-                                        " --inputbox \"Enter TOS value:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"IPv4 header\""
+					" --inputbox \"Enter TOS value:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 sscanf(dialog_output_1, "%2hhx", &configuration->ipv4_header.tos);
                         }
                         break;
@@ -97,7 +106,11 @@ static void fill_ipv4_header(pkt_gen_configuration_t *configuration)
                                 struct in_addr ip_addr;
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"IPv4 header\""
                                         " --inputbox \"Enter Source IP:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}
                                 get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 inet_aton(dialog_output_1, &ip_addr);
                                 configuration->ipv4_header.saddr = ip_addr.s_addr;
@@ -108,9 +121,13 @@ static void fill_ipv4_header(pkt_gen_configuration_t *configuration)
                                 struct in_addr ip_addr;
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"IPv4 header\""
                                         " --inputbox \"Enter Dest IP:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
-                                inet_aton(dialog_output_1, &ip_addr);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				inet_aton(dialog_output_1, &ip_addr);
                                 configuration->ipv4_header.daddr = ip_addr.s_addr;
                         }
                         break;
@@ -141,8 +158,12 @@ void fill_protocol(pkt_gen_configuration_t *configuration)
         strcat(system_command, " 0 Raw-Ethernet");
         strcat(system_command, " 1 IPv4");
         strcat(system_command, " 2>"DIALOG_OUT);
-        system(system_command);
-        get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+	if (system(system_command) == -1)
+        {
+                DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+                return;
+        }
+	get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         switch(atoi(dialog_output))
         {
@@ -178,9 +199,13 @@ void fill_vlan_tag(vlan_tag_t *vlan_tag)
         strcat(system_command, " 1 Priority off");
         strcat(system_command, " 2 cfa off");
         strcat(system_command, " 3 VLAN-Id on");
-        strcat(system_command, " 2>"DIALOG_OUT);
-        system(system_command);
-        get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+	strcat(system_command, " 2>"DIALOG_OUT);
+	if (system(system_command) == -1)
+	{
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return;
+	}
+	get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         char *token = strtok(dialog_output, "\"");
         while (token)
@@ -191,8 +216,12 @@ void fill_vlan_tag(vlan_tag_t *vlan_tag)
                         {
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"VLAN Tag\""
                                         " --inputbox \"Enter Ethertype in hex:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 sscanf(dialog_output_1, "%2hhx", &vlan_tag->ether_type[0]);
                                 sscanf(dialog_output_1 + 2, "%2hhx", &vlan_tag->ether_type[1]);
                         }
@@ -201,8 +230,12 @@ void fill_vlan_tag(vlan_tag_t *vlan_tag)
                         {
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"VLAN Tag\""
                                         " --inputbox \"Enter COS priority(0-7):\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}                                
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 vlan_tag->cos = atoi(dialog_output_1);
                         }
                         break;
@@ -210,8 +243,12 @@ void fill_vlan_tag(vlan_tag_t *vlan_tag)
                         {
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"VLAN Tag\""
                                         " --inputbox \"Enter cfa(0/1):\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 vlan_tag->cfa = atoi(dialog_output_1);
                         }
                         break;
@@ -219,8 +256,12 @@ void fill_vlan_tag(vlan_tag_t *vlan_tag)
                         {
                                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"VLAN Tag\""
                                         " --inputbox \"Enter VLAN-ID:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                                system(system_command);
-                                get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
+				if (system(system_command) == -1)
+				{
+					DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+					return;
+				}                                
+				get_dialog_output(dialog_output_1, MAX_OUTPUT_LEN);
                                 vlan_tag->vlan_id = atoi(dialog_output_1);
                         }
                         break;
@@ -243,8 +284,12 @@ void fill_frame_length(int *length)
 
         sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"Frame Length\""
                 " --inputbox \"Enter Frame length:\" 8 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-        system(system_command);
-        get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+	if (system(system_command) == -1)
+	{
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return;
+	}        
+	get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         input = atoi(dialog_output);
         input = (input < 60) ? 60 : input;
@@ -266,8 +311,12 @@ void fill_MAC_address(uint8_t *MAC_address, char *title)
 
         sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"%s\""
                 " --inputbox \"Enter MAC address:\" 8 40 2>%s", DIALOG_BIN, title, DIALOG_OUT);
-        system(system_command);
-        get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+	if (system(system_command) == -1)
+	{
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return;
+	}        
+	get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         pos = dialog_output;
         for (i = 0; i < strlen(dialog_output); i++)
@@ -306,8 +355,12 @@ void fill_input_checks(pkt_gen_configuration_t *configuration)
         strcat(system_command, " 3 VLAN-Tag off");
         strcat(system_command, " 4 Protocol off");
         strcat(system_command, " 2>"DIALOG_OUT);
-        system(system_command);
-        get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+	if (system(system_command) == -1)
+	{
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return;
+	}        
+	get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
         char *token = strtok(dialog_output, "\"");
         while (token)
@@ -350,8 +403,12 @@ void fill_save_configuration_data(pkt_gen_configuration_t *configuration)
         {
                 sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"Save Configuration\""
                                 " --inputbox \"Enter file name to save\" 6 40 2>%s", DIALOG_BIN, DIALOG_OUT);
-                system(system_command);
-                get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
+		if (system(system_command) == -1)
+		{
+			DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+			return;
+		}                
+		get_dialog_output(dialog_output, MAX_OUTPUT_LEN);
 
                 int i = 0;
                 FILE *file_pointer = fopen (dialog_output, "w+");
@@ -371,4 +428,23 @@ void fill_save_configuration_data(pkt_gen_configuration_t *configuration)
         }
 
         remove(DIALOG_OUT);
+}
+
+bool show_welcome_window()
+{
+        char system_command[MAX_SYS_CMD_LEN] = { 0 };
+        const int checks_DIALOG_HEIGHT = 10;
+        
+	DEBUG_PRINT(DEBUG_INFO, "Filling input checks.");
+
+        sprintf(system_command, "%s --backtitle \"P.U.S.H.\" --title \"Packet Editor\""
+                " --msgbox \"Welcome to PUSH Packet Editor\" %d 40",
+                DIALOG_BIN, checks_DIALOG_HEIGHT);
+	if (system(system_command) != 0)
+	{
+		printf("Failed to open dialog application\n");
+		DEBUG_PRINT(DEBUG_ERROR, "Failed to execute dialog.");
+		return false;
+	}
+	return true;
 }

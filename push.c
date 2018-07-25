@@ -133,6 +133,11 @@ static void send_generated_packet_stream()
 
 	DEBUG_PRINT(DEBUG_INFO, "Generating new packet stream");
 	
+	if (!show_welcome_window())
+	{
+		return;
+	}
+	
 	fill_input_checks(&g_configuration);
 	if (g_configuration.check_dst_MAC)
 		fill_MAC_address(g_configuration.ethernet_header.dst_MAC, "Destination MAC Address");
@@ -391,11 +396,16 @@ static void process_receive_requests()
 	pcap_close(g_receiver);
 }
 
-static void get_interface_MAC_address(void)
+static bool get_interface_MAC_address()
 {
 	int i;
 	struct ifreq interface_request;
 	int socket_descriptor = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+	if (socket_descriptor < 0)
+	{
+		return false;
+	}
 
 	strcpy(interface_request.ifr_name, g_interface_name);
 	if (0 == ioctl(socket_descriptor, SIOCGIFHWADDR, &interface_request))
@@ -405,10 +415,18 @@ static void get_interface_MAC_address(void)
 			g_interface_MAC_address[i] = (uint8_t) interface_request.ifr_addr.sa_data[i];
 		}
 	}
+	else
+	{
+		close(socket_descriptor);
+		return false;
+	}
+
 	DEBUG_PRINT(DEBUG_INFO,"Interface MAC address- %02x:%02x:%02x:%02x:%02x:%02x", g_interface_MAC_address[0],
 		g_interface_MAC_address[1], g_interface_MAC_address[2], g_interface_MAC_address[3],
 		g_interface_MAC_address[4], g_interface_MAC_address[5]);
 	close(socket_descriptor);
+
+	return true;
 }
 
 static bool parse_inputs(int argc, char *argv[])
@@ -523,14 +541,19 @@ static bool parse_inputs(int argc, char *argv[])
 		if (g_interface_name == NULL) 
 		{
 			printf("Error finding device: %s\n", error_buffer);
-			DEBUG_PRINT(DEBUG_INFO,"pcap_lookupdev() failed to find suitable devie: %s.", error_buffer);
+			DEBUG_PRINT(DEBUG_ERROR,"pcap_lookupdev() failed to find suitable devie: %s.", error_buffer);
 			return false;
 		}
 		DEBUG_PRINT(DEBUG_INFO,"Found suitable interface: %s.", g_interface_name);
 	}
 
-	get_interface_MAC_address();
-	
+	if (!get_interface_MAC_address())
+	{
+		printf("Failed to open device %s\n", g_interface_name);
+		DEBUG_PRINT(DEBUG_ERROR,"Failed to open device %s", g_interface_name);
+		return false;	
+	}
+
 	if (g_frames_per_second < 0)
 	{
 		printf("Invalid frame rate\n");
