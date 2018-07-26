@@ -449,7 +449,7 @@ static bool parse_inputs(int argc, char *argv[])
 	bool valid_request_found = false;
 
 	/* Loop through user inputs */
-	while ((ch = getopt_long(argc, argv, "i:d::hc:n:x:p:r:f:b", long_options, NULL)) != EOF)
+	while ((ch = getopt_long(argc, argv, "i:d::hc::n:x:p:r:f:b", long_options, NULL)) != EOF)
 	{
 		switch (ch)
 		{
