@@ -39,39 +39,39 @@ static pkt_gen_configuration_t g_configuration;
 static void usage()
 {
 	printf("USAGE:\n"
-		"push -bh -i <interface-name> -n <number-of-packets-to-capture>\n"
-		"     -f <capture-filter> -x <hex-stream-file-name> -r <frame-rate>\n"
-		"     -p <pcap-file-name> -c <capture-file>\n"
+			"push -bh -i <interface-name> -n <number-of-packets-to-capture>\n"
+			"     -f <capture-filter> -x <hex-stream-file-name> -r <frame-rate>\n"
+			"     -p <pcap-file-name> -c <capture-file>\n"
 #ifdef DEBUG
-		"     -d <optional-debug-args>\n"
+			"     -d <optional-debug-args>\n"
 #endif
-		"\n");
+			"\n");
 	printf("OPTIONS:\n"
-		"     -i, --interface      : Interface on which send/recv to be done.\n"
-		"                            Args required: interface name\n"
-		"     -c, --capture        : Enable capture, output pcap file will be\n"
-		"                            generated: \"capture.pcap\".\n"
-		"                            Optional Args required: capture file name.\n"
-		"     -n, --numCapture     : Number of packets to capture.\n"
-		"                            Args required: packet count\n"
-		"     -f, --filter         : Capture filter. Capture filters can be found\n"
-		"                            here:\"https://www.tcpdump.org/manpages/pcap-filter.7.html\"\n"
-		"                            Args required: filter name\n"
-		"     -r, --framerate      : Frame rate in fps to send traffic.\n"
+			"     -i, --interface      : Interface on which send/recv to be done.\n"
+			"                            Args required: interface name\n"
+			"     -c, --capture        : Enable capture, output pcap file will be\n"
+			"                            generated: \"capture.pcap\".\n"
+			"                            Optional Args required: capture file name.\n"
+			"     -n, --numCapture     : Number of packets to capture.\n"
+			"                            Args required: packet count\n"
+			"     -f, --filter         : Capture filter. Capture filters can be found\n"
+			"                            here:\"https://www.tcpdump.org/manpages/pcap-filter.7.html\"\n"
+			"                            Args required: filter name\n"
+			"     -r, --framerate      : Frame rate in fps to send traffic.\n"
 #ifdef DEBUG
-		"                            Will not be accurate if debug enabled.\n"
+			"                            Will not be accurate if debug enabled.\n"
 #endif
-		"                            Args required: frame rate in fps\n"
-		"     -x, --hexstream      : Send packets from file. Packet should be\n"
-		"                            written in hex stream in this text file.\n"
-		"                            Args required: file name\n"
-		"     -p, --pcapfile       : Send packets from pcap file.\n"
-		"                            Args required: pcap file name\n"
-		"     -b, --buildstream    : Generate packet stream and send.\n"
+			"                            Args required: frame rate in fps\n"
+			"     -x, --hexstream      : Send packets from file. Packet should be\n"
+			"                            written in hex stream in this text file.\n"
+			"                            Args required: file name\n"
+			"     -p, --pcapfile       : Send packets from pcap file.\n"
+			"                            Args required: pcap file name\n"
+			"     -b, --buildstream    : Generate packet stream and send.\n"
 #ifdef DEBUG
-		"     -d, --debug          : Enable debug options.\n"
+			"     -d, --debug          : Enable debug options.\n"
 #endif
-		"     -h, --help           : Help. Displays usage.\n");
+			"     -h, --help           : Help. Displays usage.\n");
 }
 
 static void save_configuration(int signo)
@@ -117,9 +117,9 @@ static void send_generated_packet_stream()
 	uint8_t *data = g_configuration.data;
 	int length = 0;
 	uint8_t LLC_header[3] =
-		{ 0x00, 0x00, 0x03 };
+	{ 0x00, 0x00, 0x03 };
 	uint16_t ether_type = 0;
-	
+
 	memset(&g_configuration, 0, sizeof(pkt_gen_configuration_t));
 	memcpy(g_configuration.ethernet_header.dst_MAC, g_broadcast_MAC_address, ETH_ALEN);
 	memcpy(g_configuration.ethernet_header.src_MAC, g_interface_MAC_address, ETH_ALEN);
@@ -132,12 +132,12 @@ static void send_generated_packet_stream()
 	g_configuration.pkt_len = 64;
 
 	DEBUG_PRINT(DEBUG_INFO, "Generating new packet stream");
-	
+
 	if (!show_welcome_window())
 	{
 		return;
 	}
-	
+
 	fill_input_checks(&g_configuration);
 	if (g_configuration.check_dst_MAC)
 		fill_MAC_address(g_configuration.ethernet_header.dst_MAC, "Destination MAC Address");
@@ -149,12 +149,12 @@ static void send_generated_packet_stream()
 		fill_vlan_tag(&g_configuration.vlan_tag);
 	if(g_configuration.check_protocol)
 		fill_protocol(&g_configuration);
-	
+
 	memset(data, 0, ETH_FRAME_LEN);
 	memcpy(data, g_configuration.ethernet_header.dst_MAC, ETH_ALEN);
 	memcpy(data + ETH_ALEN, g_configuration.ethernet_header.src_MAC, ETH_ALEN);
 	length = 2 * ETH_ALEN;
-	
+
 	if (g_configuration.check_tagged)
 	{
 		data[length] = g_configuration.vlan_tag.ether_type[0];
@@ -166,11 +166,13 @@ static void send_generated_packet_stream()
 		data[length + 1] = g_configuration.vlan_tag.vlan_id & 0xff;
 		length += 2;
 	}
-	
+
 	if(g_configuration.protocol == proto_raw)
 		ether_type = g_configuration.pkt_len;
 	else if (g_configuration.protocol == proto_ipv4)
 		ether_type = ETH_P_IP;
+	else if (g_configuration.protocol == proto_ipv6)
+		ether_type = ETH_P_IPV6;
 
 	data[length] = ether_type >> 8;
 	data[length + 1] = ether_type;
@@ -186,6 +188,16 @@ static void send_generated_packet_stream()
 		memcpy(data + length, &g_configuration.ipv4_header, sizeof(struct iphdr));
 		length += sizeof(struct iphdr);
 		if (g_configuration.ipv4_header.protocol == IPPROTO_UDP)
+		{
+			memcpy(data + length, &g_configuration.udp_header, sizeof(struct udphdr));
+			length += sizeof(struct udphdr);
+		}
+	}
+	else if (g_configuration.protocol == proto_ipv6)
+	{
+		memcpy(data + length, &g_configuration.ipv6_header, sizeof(struct ip6_hdr));
+		length += sizeof(struct ip6_hdr);
+		if (g_configuration.ipv6_header.ip6_nxt == IPPROTO_UDP)
 		{
 			memcpy(data + length, &g_configuration.udp_header, sizeof(struct udphdr));
 			length += sizeof(struct udphdr);
@@ -223,11 +235,11 @@ static void send_pcaket_from_pcap_file()
 	{
 		printf("Failed to read pcap file %s. Error: %s\n", g_pcap_file_name, error_buffer);
 		DEBUG_PRINT(DEBUG_ERROR, 
-			"Failed to read pcap file %s. Error: %s\n", g_pcap_file_name, error_buffer);
+				"Failed to read pcap file %s. Error: %s\n", g_pcap_file_name, error_buffer);
 		return; 
 	}
 
-        /* loop for callback function */
+	/* loop for callback function */
 	pcap_loop(pcap_reader, 0, send_pcap_packets, NULL);
 
 	pcap_close(pcap_reader);
@@ -297,7 +309,7 @@ static void send_hex_stream_from_file()
 static void process_send_requests()
 {
 	char error_buffer[PCAP_ERRBUF_SIZE];
-	
+
 	if (g_frames_per_second == 0)
 	{
 		printf("Frame rate ZERO\n");
@@ -381,13 +393,13 @@ static void process_receive_requests()
 
 	/* Open capture file */
 	if ((pcapfile = pcap_dump_open(g_receiver, 
-		(g_capture_file ? g_capture_file : "capture.pcap"))) == NULL)
+					(g_capture_file ? g_capture_file : "capture.pcap"))) == NULL)
 	{
 		printf("Error from pcap_dump_open(): %s\n", pcap_geterr(g_receiver)); 
 		DEBUG_PRINT(DEBUG_ERROR,"pcap_dump_open() failed with error: %s.", pcap_geterr(g_receiver));
 		return;
 	}
-	
+
 	/* loop for callback function */
 	DEBUG_PRINT(DEBUG_INFO,"Capturing packets on %s.", g_interface_name);
 	pcap_loop(g_receiver, g_capture_count, capture_packets, (u_char *) pcapfile);
@@ -422,8 +434,8 @@ static bool get_interface_MAC_address()
 	}
 
 	DEBUG_PRINT(DEBUG_INFO,"Interface MAC address- %02x:%02x:%02x:%02x:%02x:%02x", g_interface_MAC_address[0],
-		g_interface_MAC_address[1], g_interface_MAC_address[2], g_interface_MAC_address[3],
-		g_interface_MAC_address[4], g_interface_MAC_address[5]);
+			g_interface_MAC_address[1], g_interface_MAC_address[2], g_interface_MAC_address[3],
+			g_interface_MAC_address[4], g_interface_MAC_address[5]);
 	close(socket_descriptor);
 
 	return true;
@@ -434,18 +446,18 @@ static bool parse_inputs(int argc, char *argv[])
 	int ch = 0;
 	char error_buffer[PCAP_ERRBUF_SIZE];
 	struct option long_options[] =
-		{
-			{ "interface", O_REQ_ARG, NULL, 'i' },
-			{ "capture", O_OPT_ARG, NULL, 'c' },
-			{ "numCapture", O_REQ_ARG, NULL, 'n' },
-			{ "filter", O_REQ_ARG, NULL, 'f' },
-			{ "hexstream", O_REQ_ARG, NULL, 'x' },
-			{ "pcapfile", O_REQ_ARG, NULL, 'p' },
-			{ "framerate", O_REQ_ARG, NULL, 'r' },
-			{ "buildstream", O_NO_ARG, NULL, 'b' },
-			{ "debug", O_OPT_ARG, NULL, 'd' },
-			{ "help", O_NO_ARG, NULL, 'h' },
-			{ NULL, 0, NULL, 0 } };
+	{
+		{ "interface", O_REQ_ARG, NULL, 'i' },
+		{ "capture", O_OPT_ARG, NULL, 'c' },
+		{ "numCapture", O_REQ_ARG, NULL, 'n' },
+		{ "filter", O_REQ_ARG, NULL, 'f' },
+		{ "hexstream", O_REQ_ARG, NULL, 'x' },
+		{ "pcapfile", O_REQ_ARG, NULL, 'p' },
+		{ "framerate", O_REQ_ARG, NULL, 'r' },
+		{ "buildstream", O_NO_ARG, NULL, 'b' },
+		{ "debug", O_OPT_ARG, NULL, 'd' },
+		{ "help", O_NO_ARG, NULL, 'h' },
+		{ NULL, 0, NULL, 0 } };
 	bool valid_request_found = false;
 
 	/* Loop through user inputs */
@@ -514,20 +526,20 @@ static bool parse_inputs(int argc, char *argv[])
 	else 
 	{
 		if ((g_hexstream_file_name || g_pcap_file_name || g_build_stream) &&
-			(g_capture_enabled))
+				(g_capture_enabled))
 		{
 			printf("\nChoose any one of these options: "
-				"\"capture\" \"hexstream\" \"pcapfile\" \"buildstream\"\n\n");
+					"\"capture\" \"hexstream\" \"pcapfile\" \"buildstream\"\n\n");
 			usage();
 			return false;
 		}
 
 		if ((g_hexstream_file_name && (g_pcap_file_name || g_build_stream)) ||
-			(g_pcap_file_name && (g_hexstream_file_name || g_build_stream)) ||
-			(g_build_stream && (g_hexstream_file_name || g_pcap_file_name)))
+				(g_pcap_file_name && (g_hexstream_file_name || g_build_stream)) ||
+				(g_build_stream && (g_hexstream_file_name || g_pcap_file_name)))
 		{
 			printf("\nChoose any one of these options: "
-				"\"capture\" \"hexstream\" \"pcapfile\" \"buildstream\"\n\n");
+					"\"capture\" \"hexstream\" \"pcapfile\" \"buildstream\"\n\n");
 			usage();
 			return false;
 		}
@@ -559,7 +571,7 @@ static bool parse_inputs(int argc, char *argv[])
 		printf("Invalid frame rate\n");
 		return false;
 	}
-	
+
 	/* Handle configuration save when kill request comes */
 	if (g_build_stream)
 		signal(SIGINT, save_configuration);
@@ -567,9 +579,9 @@ static bool parse_inputs(int argc, char *argv[])
 	printf("---------------------------------------------------------------------\n");
 	printf("Working on interface: %s ...\n", g_interface_name);
 	if (g_hexstream_file_name)
-		 printf("Pushing packets from hexstream file: %s\n", g_hexstream_file_name);
+		printf("Pushing packets from hexstream file: %s\n", g_hexstream_file_name);
 	if (g_pcap_file_name)
-		 printf("Pushing packets from pcap file: %s\n", g_pcap_file_name);
+		printf("Pushing packets from pcap file: %s\n", g_pcap_file_name);
 	printf("Capture: %s\n", g_capture_enabled ? "Enabled" : "Disabled");
 	if (g_capture_enabled)
 	{
@@ -581,7 +593,7 @@ static bool parse_inputs(int argc, char *argv[])
 	if (g_hexstream_file_name || g_pcap_file_name || g_build_stream)
 		printf("Frame rate set to: %d fps\n", g_frames_per_second);
 	printf("---------------------------------------------------------------------\n");
-	
+
 	return true;
 }
 
@@ -592,7 +604,7 @@ int main(int argc, char *argv[])
 	{
 		return FAILURE;
 	}
-	
+
 	/* process user requests got from command line */
 	process_send_requests();
 	process_receive_requests();
