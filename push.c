@@ -32,7 +32,7 @@ static char *g_pcap_file_name = NULL;
 static char *g_filter = NULL;
 static char *g_capture_file = NULL;
 static uint32_t g_frames_per_second = 10;
-static unsigned long g_capture_count = 10; 
+static unsigned long g_packet_count = -1; 
 static pkt_gen_configuration_t g_configuration;
 
 /* Function Definitions */
@@ -52,7 +52,7 @@ static void usage()
 			"     -c, --capture        : Enable capture, output pcap file will be\n"
 			"                            generated: \"capture.pcap\".\n"
 			"                            Optional Args required: capture file name.\n"
-			"     -n, --numCapture     : Number of packets to capture.\n"
+			"     -n, --numPackets     : Number of packets to capture/send.\n"
 			"                            Args required: packet count\n"
 			"     -f, --filter         : Capture filter. Capture filters can be found\n"
 			"                            here:\"https://www.tcpdump.org/manpages/pcap-filter.7.html\"\n"
@@ -102,6 +102,11 @@ static void sleep_till_next()
 
 static void send_packet(uint8_t *frame, int length)
 {
+	if (g_packet_count != -1)
+		if (!(g_packet_count--))
+			exit(EXIT_SUCCESS);
+
+	DEBUG_PRINT_PACKET("Stream", frame, length);
 	if (pcap_inject(g_sender, frame, length) == -1)
 	{
 		DEBUG_PRINT(DEBUG_ERROR, "pcap_inject() failed");
@@ -109,6 +114,7 @@ static void send_packet(uint8_t *frame, int length)
 		pcap_close(g_sender);
 		exit(EXIT_FAILURE);
 	}
+
 	sleep_till_next();
 }
 
@@ -205,8 +211,7 @@ static void send_generated_packet_stream()
 	}
 
 	strcpy((char *) &data[g_configuration.pkt_len - strlen(SIGNATURE)], SIGNATURE);
-	printf("Sending packets at %d fps...\n", g_frames_per_second);
-	DEBUG_PRINT_PACKET("Generated Stream", data, g_configuration.pkt_len);
+	printf("Sending generated packets at %d fps...\n", g_frames_per_second);
 
 	while(true)	
 		send_packet(data, g_configuration.pkt_len);
@@ -217,9 +222,6 @@ static void send_pcap_packets(u_char *user, const struct pcap_pkthdr *packet_hea
 	uint8_t packet_data[ETH_FRAME_LEN] = { 0 };
 
 	memcpy(packet_data, packet, packet_header->len);
-
-	DEBUG_PRINT_PACKET("Packet from pcap file", packet_data, packet_header->len);
-
 	send_packet(packet_data, packet_header->len);
 }
 
@@ -300,7 +302,6 @@ static void send_hex_stream_from_file()
 	{
 		for(i = 0; i < frame_count; i++)
 		{
-			DEBUG_PRINT_PACKET("Packet from hex stream file", data[i], packet_length[i]);			
 			send_packet(data[i], packet_length[i]);
 		}
 	}
@@ -402,7 +403,7 @@ static void process_receive_requests()
 
 	/* loop for callback function */
 	DEBUG_PRINT(DEBUG_INFO,"Capturing packets on %s.", g_interface_name);
-	pcap_loop(g_receiver, g_capture_count, capture_packets, (u_char *) pcapfile);
+	pcap_loop(g_receiver, g_packet_count, capture_packets, (u_char *) pcapfile);
 
 	pcap_dump_close(pcapfile);
 	pcap_close(g_receiver);
@@ -449,7 +450,7 @@ static bool parse_inputs(int argc, char *argv[])
 	{
 		{ "interface", O_REQ_ARG, NULL, 'i' },
 		{ "capture", O_OPT_ARG, NULL, 'c' },
-		{ "numCapture", O_REQ_ARG, NULL, 'n' },
+		{ "numPackets", O_REQ_ARG, NULL, 'n' },
 		{ "filter", O_REQ_ARG, NULL, 'f' },
 		{ "hexstream", O_REQ_ARG, NULL, 'x' },
 		{ "pcapfile", O_REQ_ARG, NULL, 'p' },
@@ -477,7 +478,7 @@ static bool parse_inputs(int argc, char *argv[])
 				break;
 			case 'n':
 				if (optarg != NULL)
-					g_capture_count = atoi(optarg);
+					g_packet_count = atoi(optarg);
 				break;
 			case 'x':
 				if (optarg != NULL)
@@ -585,8 +586,10 @@ static bool parse_inputs(int argc, char *argv[])
 	printf("Capture: %s\n", g_capture_enabled ? "Enabled" : "Disabled");
 	if (g_capture_enabled)
 	{
+		if (g_packet_count == -1)
+			g_packet_count = 10;
 		printf("Filter: %s\n", g_filter ? g_filter : "Nil");
-		printf("Max packets to capture: %ld\n", g_capture_count);
+		printf("Max packets to capture: %ld\n", g_packet_count);
 	}
 	if (g_build_stream)
 		printf("Entering packet stream generate mode\n");
